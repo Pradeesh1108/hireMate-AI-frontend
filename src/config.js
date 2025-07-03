@@ -6,7 +6,7 @@ const config = {
   },
   // Production environment (deployed)
   production: {
-    backendUrl: 'https://your-production-backend.com' // Replace with your actual production URL
+    backendUrl: 'https://hiremate-ai.onrender.com' // Replace with your actual production URL
   },
   // For port forwarding and mobile testing
   // IMPORTANT: Replace this IP with your computer's actual IP address
@@ -15,7 +15,7 @@ const config = {
   // - On Windows: run 'ipconfig'
   // Look for your local network IP (usually starts with 192.168.x.x or 10.0.x.x)
   mobile: {
-    backendUrl: 'http://172.16.8.24:3001' // Replace with your computer's IP address
+    backendUrl: 'https://hiremate-ai.onrender.com' // Replace with your computer's IP address
   }
 };
 
