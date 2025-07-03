@@ -2,7 +2,7 @@
 const config = {
   // Development environment (local)
   development: {
-    backendUrl: 'http://localhost:8000'
+    backendUrl: 'https://hiremate-ai.onrender.com'
   },
   // Production environment (deployed)
   production: {
