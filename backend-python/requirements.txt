@@ -15,3 +15,4 @@ SpeechRecognition
 pydub
 scikit-learn
 scipy 
+python-multipart
