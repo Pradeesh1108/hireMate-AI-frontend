@@ -66,16 +66,13 @@ const Interview = () => {
     
     // Restore interview state from sessionStorage
     const savedInterviewState = sessionStorage.getItem('interviewState');
-    console.log('Saved interview state:', savedInterviewState);
     
     if (savedInterviewState) {
       try {
         const state = JSON.parse(savedInterviewState);
-        console.log('Parsed interview state:', state);
         
         // Only restore if we have resume text (interview is valid)
         if (sessionStorage.getItem('resumeText')) {
-          console.log('Restoring interview state...');
           setIsRestoring(true);
           
           // If interview is started or has chat history, we should not show intro prompt
@@ -94,30 +91,19 @@ const Interview = () => {
           setWaitingForAnswer(state.waitingForAnswer || false);
           setInterviewResults(state.interviewResults || null);
           
-          console.log('Interview state restored:', {
-            showIntroPrompt: state.showIntroPrompt,
-            interviewStarted: state.interviewStarted,
-            interviewCompleted: state.interviewCompleted,
-            chatHistoryLength: state.chatHistory?.length || 0,
-            chatMessagesLength: state.chatMessages?.length || 0
-          });
-          
           // Set a timeout to allow state updates to complete
           setTimeout(() => {
             setIsRestoring(false);
             setHasInitialized(true);
           }, 1000);
         } else {
-          console.log('No resume text found, clearing interview state');
           sessionStorage.removeItem('interviewState');
         }
       } catch (error) {
-        console.error('Error parsing interview state:', error);
         sessionStorage.removeItem('interviewState');
         setHasInitialized(true);
       }
     } else {
-      console.log('No saved interview state found');
       setHasInitialized(true);
     }
   }, []);
@@ -195,7 +181,6 @@ const Interview = () => {
   useEffect(() => {
     const hasProgress = interviewStarted || (chatHistory && chatHistory.length > 0) || (chatMessages && chatMessages.length > 1);
     if (hasProgress && showIntroPrompt) {
-      console.log('Hiding intro prompt because interview has progress');
       setShowIntroPrompt(false);
     }
   }, [interviewStarted, chatHistory, chatMessages, showIntroPrompt]);
@@ -509,7 +494,6 @@ const Interview = () => {
 
   const saveInterviewState = () => {
     if (isRestoring) {
-      console.log('Skipping save during restoration');
       return;
     }
     
@@ -524,7 +508,6 @@ const Interview = () => {
       waitingForAnswer,
       interviewResults
     };
-    console.log('Saving interview state:', state);
     sessionStorage.setItem('interviewState', JSON.stringify(state));
   };
 
@@ -578,13 +561,9 @@ const Interview = () => {
         
         // Send to backend for speech-to-text conversion
         try {
-          console.log('Audio blob size:', audioBlob.size, 'bytes');
-          console.log('Audio blob type:', audioBlob.type);
-          
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
           
-          console.log('Sending audio to backend...');
           const response = await axios.post(`${BACKEND_URL}/api/speech-to-text`, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
@@ -592,32 +571,24 @@ const Interview = () => {
             timeout: 30000, // 30 second timeout
           });
           
-          console.log('Backend response:', response.data);
-          
           if (response.data.success) {
             const transcribedText = response.data.text;
-            console.log('Transcribed text:', transcribedText);
             
             // Automatically submit the transcribed answer
             autoSubmitAnswer(transcribedText);
           } else {
-            console.error('Speech recognition failed:', response.data.error);
             alert('Speech recognition failed: ' + response.data.error);
           }
         } catch (error) {
-          console.error('Error sending audio to backend:', error);
           if (error.response) {
-            console.error('Error response:', error.response.data);
             alert('Backend error: ' + (error.response.data.error || error.response.statusText));
           } else if (error.request) {
-            console.error('No response received');
-            alert('No response from backend. Please check if the server is running.');
+            alert('No response received');
           } else {
             alert('Failed to convert speech to text: ' + error.message);
           }
           
           // Fallback to browser speech recognition if backend fails
-          console.log('Trying browser speech recognition as fallback...');
           try {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
               const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -628,7 +599,6 @@ const Interview = () => {
               
               recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                console.log('Browser recognition result:', transcript);
                 
                 // Automatically submit the transcribed answer
                 autoSubmitAnswer(transcript);
@@ -652,7 +622,6 @@ const Interview = () => {
       };
       
       mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
         alert('Recording error occurred. Please try again.');
         setIsRecording(false);
         stream.getTracks().forEach(track => track.stop());
@@ -664,7 +633,6 @@ const Interview = () => {
       setIsRecording(true);
       
     } catch (error) {
-      console.error('Error starting recording:', error);
       if (error.name === 'NotAllowedError') {
         alert('Microphone access denied. Please allow microphone access and try again.');
       } else {
@@ -683,14 +651,6 @@ const Interview = () => {
 
   // Check if there's any interview progress
   const hasInterviewProgress = interviewStarted || (chatHistory && chatHistory.length > 0) || (chatMessages && chatMessages.length > 1);
-  
-  console.log('Interview render state:', {
-    interviewStarted,
-    chatHistoryLength: chatHistory?.length || 0,
-    chatMessagesLength: chatMessages?.length || 0,
-    hasInterviewProgress,
-    showIntroPrompt
-  });
   
   // Show intro prompt only if there's no interview progress
   if (showIntroPrompt && !hasInterviewProgress) {

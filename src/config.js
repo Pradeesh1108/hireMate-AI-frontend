@@ -46,9 +46,4 @@ const currentConfig = config[getEnvironment()];
 // Export the backend URL
 export const BACKEND_URL = currentConfig.backendUrl;
 
-// Log the configuration for debugging
-console.log('Environment:', getEnvironment());
-console.log('Backend URL:', BACKEND_URL);
-console.log('Current hostname:', window.location.hostname);
-console.log('Current URL:', window.location.href);
-console.log('User Agent:', navigator.userAgent); 
+// Removed all console.log statements at the bottom of the file 

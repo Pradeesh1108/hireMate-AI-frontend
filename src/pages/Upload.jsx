@@ -136,13 +136,7 @@ const Upload = () => {
     formData.append('resume', file);
     formData.append('job_description', jobDescription);
     
-    console.log('Starting resume analysis...');
-    console.log('Backend URL:', BACKEND_URL);
-    console.log('File size:', file.size, 'bytes');
-    console.log('Job description length:', jobDescription.length);
-    
     try {
-      console.log('Sending request to:', `${BACKEND_URL}/api/analyze-resume`);
       const response = await axios.post(`${BACKEND_URL}/api/analyze-resume`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -150,23 +144,13 @@ const Upload = () => {
         timeout: 60000, // 60 second timeout
       });
       
-      console.log('Response received:', response.data);
       setAnalysis(response.data);
       if (response.data && response.data.resumeText) {
-        console.log('Extracted Resume Text:', response.data.resumeText);
         sessionStorage.setItem('resumeText', response.data.resumeText);
         sessionStorage.setItem('atsScore', response.data.atsScore);
         sessionStorage.setItem('jobDescription', jobDescription);
       }
     } catch (error) {
-      console.error('Error analyzing resume:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        statusText: error.response?.statusText
-      });
-      
       let errorMessage = 'Error analyzing resume. ';
       if (error.response?.status === 0) {
         errorMessage += 'Cannot connect to server. Please check your network connection.';
