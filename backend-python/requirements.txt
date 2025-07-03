@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+PyPDF2
+reportlab
+pytesseract
+opencv-python
+pillow
+sentence-transformers
+keybert
+spacy
+google-generativeai
+python-dotenv
+numpy
+pdf2image
+SpeechRecognition
+pydub 
