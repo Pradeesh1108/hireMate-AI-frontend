@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+venv/
+__pycache__/
+*.pyc
+*.pkl
+*.h5
+.DS_Store
+.env
