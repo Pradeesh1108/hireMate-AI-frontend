@@ -5,7 +5,6 @@ reportlab
 pytesseract
 opencv-python
 pillow
-sentence-transformers
 keybert
 spacy
 groq
@@ -13,4 +12,6 @@ python-dotenv
 numpy
 pdf2image
 SpeechRecognition
-pydub 
+pydub
+scikit-learn
+scipy 

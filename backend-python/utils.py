@@ -4,14 +4,12 @@ import cv2
 import numpy as np
 import pytesseract
 from pdf2image import convert_from_path
-from sentence_transformers import SentenceTransformer, util as sbert_util
 from keybert import KeyBERT
 import spacy
 
-# Load models globally
-sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
-keybert_model = KeyBERT('all-MiniLM-L6-v2')
+# Load spaCy model globally
 nlp = spacy.load('en_core_web_sm')
+keybert_model = KeyBERT(nlp)  # type: ignore
 
 def extract_text_from_pdf_ocr(uploaded_file):
     text = ""
@@ -38,13 +36,15 @@ def preprocess_text(text):
     return " ".join(tokens)
 
 def extract_keywords(text):
+    # Use KeyBERT with spaCy model for lightweight keyword extraction
     keywords = keybert_model.extract_keywords(text, keyphrase_ngram_range=(1, 2), stop_words='english', top_n=100)
     return [kw[0] for kw in keywords]
 
 def calculate_similarity(resume_text, job_description):
-    embeddings = sbert_model.encode([resume_text, job_description], convert_to_tensor=True)
-    similarity_score = sbert_util.pytorch_cos_sim(embeddings[0], embeddings[1])
-    return similarity_score.item()
+    # Use spaCy's built-in similarity (no torch required)
+    doc1 = nlp(resume_text)
+    doc2 = nlp(job_description)
+    return doc1.similarity(doc2)
 
 def extract_name_from_resume(text):
     doc = nlp(text)
