@@ -123,6 +123,13 @@ async def generate_report_endpoint(payload: dict):
     pdf_bytes = generate_report(payload)
     return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=CareerMate-Report.pdf"})
 
+@app.post("/api/extract-name")
+async def extract_name_endpoint(request: Request):
+    data = await request.json()
+    resume_text = data.get("resumeText", "")
+    name = extract_name_from_resume(resume_text) or ""
+    return {"name": name}
+
 @app.get("/api/test")
 async def test_endpoint():
     """Test endpoint to verify the server is running"""

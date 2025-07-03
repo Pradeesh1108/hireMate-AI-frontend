@@ -9,21 +9,77 @@ import {
 import axios from 'axios';
 import { BACKEND_URL } from '../config';
 
-const CareerCoach = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      content: "Hello! I'm your AI Career Coach. I can help you with resume improvements, career guidance, job search strategies, and skill development recommendations. What would you like to discuss today?",
-      timestamp: new Date()
+const DEFAULT_BOT_MESSAGE = {
+  id: 1,
+  type: 'bot',
+  content: "Hello! I'm your AI Career Coach. I can help you with resume improvements, career guidance, job search strategies, and skill development recommendations. What would you like to discuss today?",
+  timestamp: new Date()
+};
+
+const getInitialMessages = () => {
+  const saved = sessionStorage.getItem('careerCoachMessages');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
+    } catch {
+      // fallback to default
     }
-  ]);
+  }
+  return [DEFAULT_BOT_MESSAGE];
+};
+
+const CareerCoach = () => {
+  const [messages, setMessages] = useState(getInitialMessages);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [resumeText] = useState(sessionStorage.getItem('resumeText') || '');
   const [jobDescription] = useState(sessionStorage.getItem('jobDescription') || '');
+
+  // Restore chat history from session storage on component mount
+  useEffect(() => {
+    const restoreChatHistory = () => {
+      setIsRestoring(true);
+      const savedMessages = sessionStorage.getItem('careerCoachMessages');
+      if (savedMessages) {
+        try {
+          const parsedMessages = JSON.parse(savedMessages);
+          // Convert timestamp strings back to Date objects
+          const messagesWithDates = parsedMessages.map(msg => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+          setMessages(messagesWithDates);
+        } catch (error) {
+          console.error('Error parsing saved messages:', error);
+          setMessages([DEFAULT_BOT_MESSAGE]);
+          sessionStorage.setItem('careerCoachMessages', JSON.stringify([DEFAULT_BOT_MESSAGE]));
+        }
+      } else {
+        // No saved messages, set default and save
+        setMessages([DEFAULT_BOT_MESSAGE]);
+        sessionStorage.setItem('careerCoachMessages', JSON.stringify([DEFAULT_BOT_MESSAGE]));
+      }
+      setIsRestoring(false);
+    };
+    restoreChatHistory();
+  }, []);
+
+  // Save messages to session storage whenever they change
+  useEffect(() => {
+    if (!isRestoring && messages.length > 0) {
+      sessionStorage.setItem('careerCoachMessages', JSON.stringify(messages));
+    }
+  }, [messages, isRestoring]);
+
+  const clearCareerCoachSession = () => {
+    sessionStorage.removeItem('careerCoachMessages');
+    setMessages([DEFAULT_BOT_MESSAGE]);
+    sessionStorage.setItem('careerCoachMessages', JSON.stringify([DEFAULT_BOT_MESSAGE]));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,9 +166,17 @@ const CareerCoach = () => {
             <Bot className="h-8 w-8 text-indigo-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Career Coach</h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 mb-4">
             Get personalized career advice and guidance from your AI assistant
           </p>
+          {messages.length > 1 && (
+            <button
+              onClick={clearCareerCoachSession}
+              className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+            >
+              Clear Chat History
+            </button>
+          )}
         </div>
 
         {/* Chat Container */}

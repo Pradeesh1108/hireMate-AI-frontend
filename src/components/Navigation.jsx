@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Brain, Home, Upload, MessageCircle, BarChart3, User, Menu, X } from 'lucide-react';
+import { Brain, Home, Upload, MessageCircle, BarChart3, User, Menu, X, Trash2 } from 'lucide-react';
 
 const Navigation = () => {
   const location = useLocation();
@@ -13,6 +13,23 @@ const Navigation = () => {
     { path: '/report', label: 'Report', icon: BarChart3 },
     { path: '/career-coach', label: 'Career Coach', icon: User },
   ];
+
+  const clearAllSessionData = () => {
+    if (window.confirm('Are you sure you want to clear all session data? This will reset your resume analysis, interview progress, and chat history.')) {
+      // Clear all session storage items
+      sessionStorage.clear();
+      // Reload the page to reset all components
+      window.location.reload();
+    }
+  };
+
+  // Check if there's any session data to show the clear button
+  const hasSessionData = () => {
+    return sessionStorage.getItem('resumeText') || 
+           sessionStorage.getItem('uploadAnalysis') || 
+           sessionStorage.getItem('careerCoachMessages') || 
+           sessionStorage.getItem('interviewState');
+  };
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200">
@@ -40,6 +57,16 @@ const Navigation = () => {
                 <span>{label}</span>
               </Link>
             ))}
+            {hasSessionData() && (
+              <button
+                onClick={clearAllSessionData}
+                className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
+                title="Clear all session data"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Clear All</span>
+              </button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -76,6 +103,18 @@ const Navigation = () => {
                   <span>{label}</span>
                 </Link>
               ))}
+              {hasSessionData() && (
+                <button
+                  onClick={() => {
+                    clearAllSessionData();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200 w-full text-left"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span>Clear All Data</span>
+                </button>
+              )}
             </div>
           </div>
         )}

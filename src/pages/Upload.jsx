@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Upload as UploadIcon, 
@@ -21,8 +21,79 @@ const Upload = () => {
   const [analysis, setAnalysis] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const navigate = useNavigate();
+
+  // Restore state from session storage on component mount
+  useEffect(() => {
+    const restoreState = async () => {
+      setIsRestoring(true);
+      
+      // Restore job description
+      const savedJobDescription = sessionStorage.getItem('uploadJobDescription');
+      if (savedJobDescription) {
+        setJobDescription(savedJobDescription);
+      }
+      
+      // Restore analysis results
+      const savedAnalysis = sessionStorage.getItem('uploadAnalysis');
+      if (savedAnalysis) {
+        try {
+          setAnalysis(JSON.parse(savedAnalysis));
+        } catch (error) {
+          console.error('Error parsing saved analysis:', error);
+        }
+      }
+      
+      // Restore file info (we can't restore the actual file, but we can show the filename)
+      const savedFileName = sessionStorage.getItem('uploadFileName');
+      const savedFileSize = sessionStorage.getItem('uploadFileSize');
+      if (savedFileName && savedFileSize) {
+        // Create a mock file object to display the file info
+        const mockFile = {
+          name: savedFileName,
+          size: parseInt(savedFileSize),
+          type: 'application/pdf'
+        };
+        setFile(mockFile);
+      }
+      
+      setIsRestoring(false);
+    };
+    
+    restoreState();
+  }, []);
+
+  // Save state to session storage whenever it changes
+  useEffect(() => {
+    if (!isRestoring) {
+      if (jobDescription) {
+        sessionStorage.setItem('uploadJobDescription', jobDescription);
+      }
+      if (analysis) {
+        sessionStorage.setItem('uploadAnalysis', JSON.stringify(analysis));
+      }
+      if (file) {
+        sessionStorage.setItem('uploadFileName', file.name);
+        sessionStorage.setItem('uploadFileSize', file.size.toString());
+      }
+    }
+  }, [jobDescription, analysis, file, isRestoring]);
+
+  // Clear session storage when file is removed
+  const clearUploadSession = () => {
+    sessionStorage.removeItem('uploadJobDescription');
+    sessionStorage.removeItem('uploadAnalysis');
+    sessionStorage.removeItem('uploadFileName');
+    sessionStorage.removeItem('uploadFileSize');
+    sessionStorage.removeItem('resumeText');
+    sessionStorage.removeItem('atsScore');
+    sessionStorage.removeItem('jobDescription');
+    setFile(null);
+    setAnalysis(null);
+    setJobDescription("");
+  };
 
   const handleDrag = useCallback((e) => {
     e.preventDefault();
@@ -209,7 +280,7 @@ const Upload = () => {
                   </button>
                   
                   <button
-                    onClick={() => setFile(null)}
+                    onClick={clearUploadSession}
                     className="px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
                   >
                     Remove
@@ -275,6 +346,12 @@ const Upload = () => {
               onClick={() => navigate('/career-coach')}
             >
               Go to Career Coach
+            </button>
+            <button
+              className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold"
+              onClick={clearUploadSession}
+            >
+              Clear Analysis & Start Over
             </button>
           </div>
         )}

@@ -8,7 +8,7 @@ pillow
 sentence-transformers
 keybert
 spacy
-google-generativeai
+groq
 python-dotenv
 numpy
 pdf2image

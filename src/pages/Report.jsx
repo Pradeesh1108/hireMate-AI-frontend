@@ -140,10 +140,28 @@ const Report = () => {
         alert('Interview results not found. Complete an interview first.');
         return;
       }
+      // Compose the reportData object for the backend
+      const interviewScore = interviewResults.averageScore || 0;
+      const atsScoreNum = Number(atsScore) || 0;
+      const overallGrade = calculateOverallGrade(atsScoreNum, interviewScore);
+      const strengths = generateStrengths(interviewResults);
+      const improvements = generateImprovements(interviewResults);
+      const reportData = {
+        atsScore: atsScoreNum,
+        interviewScore,
+        overallGrade,
+        strengths,
+        improvements,
+        totalQuestions: interviewResults.totalQuestions,
+        completedAt: interviewResults.completedAt,
+        userName: sessionStorage.getItem('userName') || '',
+        resumeText: resumeText || '',
+        // Optionally add more fields as needed
+        // careerSuggestions, skillGaps, learningPath, etc.
+        generatedAt: new Date().toISOString()
+      };
       const response = await axios.post(`${BACKEND_URL}/api/generate-report`, {
-        interviewData: interviewResults.answers,
-        userName: sessionStorage.getItem('userName'),
-        resumeText: resumeText
+        reportData
       }, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');

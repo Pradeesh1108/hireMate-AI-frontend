@@ -44,19 +44,16 @@ const Interview = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const [audioChunks, setAudioChunks] = useState([]);
   const mediaRecorderRef = useRef(null);
+  const [lastSpokenBotMsgId, setLastSpokenBotMsgId] = useState(() => {
+    return sessionStorage.getItem('lastSpokenBotMsgId') || null;
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
-
-  useEffect(() => {
-    if (resumeText) {
-      const lines = resumeText.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length > 0) setUserName(lines[0]);
-    }
-  }, [resumeText]);
 
   useEffect(() => {
     setAtsScore(sessionStorage.getItem('atsScore') || '');
@@ -79,10 +76,13 @@ const Interview = () => {
           setIsRestoring(true);
           
           // If interview is started or has chat history, we should not show intro prompt
-          const hasInterviewProgress = state.interviewStarted || (state.chatHistory && state.chatHistory.length > 0);
+          const hasInterviewProgress = state.interviewStarted || (state.chatHistory && state.chatHistory.length > 0) || (state.chatMessages && state.chatMessages.length > 1);
           const shouldShowIntro = hasInterviewProgress ? false : (state.showIntroPrompt !== undefined ? state.showIntroPrompt : true);
           setShowIntroPrompt(shouldShowIntro);
-          setInterviewStarted(hasInterviewProgress);
+          
+          // Ensure interviewStarted is true if there's any progress
+          const shouldStartInterview = hasInterviewProgress || state.interviewStarted;
+          setInterviewStarted(shouldStartInterview);
           setInterviewCompleted(state.interviewCompleted || false);
           setUserIntro(state.userIntro || '');
           setCurrentQuestion(state.currentQuestion || '');
@@ -102,6 +102,7 @@ const Interview = () => {
           // Set a timeout to allow state updates to complete
           setTimeout(() => {
             setIsRestoring(false);
+            setHasInitialized(true);
           }, 1000);
         } else {
           console.log('No resume text found, clearing interview state');
@@ -110,25 +111,40 @@ const Interview = () => {
       } catch (error) {
         console.error('Error parsing interview state:', error);
         sessionStorage.removeItem('interviewState');
+        setHasInitialized(true);
       }
     } else {
       console.log('No saved interview state found');
+      setHasInitialized(true);
     }
   }, []);
+
+  // Persist lastSpokenBotMsgId to sessionStorage whenever it changes
+  useEffect(() => {
+    if (lastSpokenBotMsgId !== null && lastSpokenBotMsgId !== undefined) {
+      sessionStorage.setItem('lastSpokenBotMsgId', lastSpokenBotMsgId);
+    }
+  }, [lastSpokenBotMsgId]);
 
   useEffect(() => {
     if (chatMessages.length === 0) return;
     const lastMsg = chatMessages[chatMessages.length - 1];
-    if (lastMsg.type === 'bot' && !lastMsg.isTyping && lastMsg.content) {
-      // Cancel any ongoing speech
+    const lastMsgIdStr = String(lastMsg.id);
+    if (
+      lastMsg.type === 'bot' &&
+      !lastMsg.isTyping &&
+      lastMsg.content &&
+      lastMsgIdStr !== lastSpokenBotMsgId
+    ) {
       window.speechSynthesis.cancel();
       const utterance = new window.SpeechSynthesisUtterance(lastMsg.content);
       utterance.lang = 'en-US';
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
+      setLastSpokenBotMsgId(lastMsgIdStr);
     }
-  }, [chatMessages]);
+  }, [chatMessages, lastSpokenBotMsgId]);
 
   // Cleanup MediaRecorder on unmount or state changes
   useEffect(() => {
@@ -153,19 +169,25 @@ const Interview = () => {
 
   // Save interview state whenever key states change
   useEffect(() => {
-    // Don't save if we're in the middle of restoring state
-    if (!isRestoring) {
-      saveInterviewState();
+    // Don't save if we're in the middle of restoring state or haven't initialized yet
+    if (!isRestoring && hasInitialized) {
+      // Add a small delay to prevent saving immediately after restoration
+      const timeoutId = setTimeout(() => {
+        saveInterviewState();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [showIntroPrompt, interviewStarted, interviewCompleted, userIntro, currentQuestion, chatHistory, chatMessages, waitingForAnswer, interviewResults, isRestoring]);
+  }, [showIntroPrompt, interviewStarted, interviewCompleted, userIntro, currentQuestion, chatHistory, chatMessages, waitingForAnswer, interviewResults, isRestoring, hasInitialized]);
 
-  // Ensure intro prompt is hidden if interview is started
+  // Ensure intro prompt is hidden if interview is started or has progress
   useEffect(() => {
-    if (interviewStarted && showIntroPrompt) {
-      console.log('Hiding intro prompt because interview is started');
+    const hasProgress = interviewStarted || (chatHistory && chatHistory.length > 0) || (chatMessages && chatMessages.length > 1);
+    if (hasProgress && showIntroPrompt) {
+      console.log('Hiding intro prompt because interview has progress');
       setShowIntroPrompt(false);
     }
-  }, [interviewStarted, showIntroPrompt]);
+  }, [interviewStarted, chatHistory, chatMessages, showIntroPrompt]);
 
   const fetchNextQuestion = async (history, intro = undefined) => {
     if (!resumeText) {
@@ -417,9 +439,20 @@ const Interview = () => {
         }));
       const response = await axios.post(`${BACKEND_URL}/api/interview/report`, {
         interviewData,
-        userName,
         resumeText
       });
+      // Save interviewResults for report download
+      const averageScore = history.length > 0 
+        ? Math.round(history.reduce((sum, answer) => sum + answer.score, 0) / history.length)
+        : 0;
+      const interviewResults = {
+        answers: history,
+        averageScore,
+        totalQuestions: history.length,
+        completedAt: new Date().toISOString(),
+        duration: '15-20 minutes'
+      };
+      sessionStorage.setItem('interviewResults', JSON.stringify(interviewResults));
       sessionStorage.setItem('interviewReport', response.data.report);
       navigate('/report');
     } catch (error) {
@@ -628,7 +661,19 @@ const Interview = () => {
     }
   };
 
-  if (showIntroPrompt) {
+  // Check if there's any interview progress
+  const hasInterviewProgress = interviewStarted || (chatHistory && chatHistory.length > 0) || (chatMessages && chatMessages.length > 1);
+  
+  console.log('Interview render state:', {
+    interviewStarted,
+    chatHistoryLength: chatHistory?.length || 0,
+    chatMessagesLength: chatMessages?.length || 0,
+    hasInterviewProgress,
+    showIntroPrompt
+  });
+  
+  // Show intro prompt only if there's no interview progress
+  if (showIntroPrompt && !hasInterviewProgress) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-xl w-full flex flex-col items-center">
@@ -656,8 +701,8 @@ const Interview = () => {
       </div>
     );
   }
-
-  if (!interviewStarted) {
+  
+  if (!hasInterviewProgress) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -665,13 +710,23 @@ const Interview = () => {
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Start your technical interview based on your resume. You will be asked 6 diverse questions.
           </p>
-          <button
-            onClick={startInterview}
-            className="inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
-          >
-            <MessageCircle className="h-6 w-6 mr-2" />
-            Start Interview
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={startInterview}
+              className="inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <MessageCircle className="h-6 w-6 mr-2" />
+              Start Interview
+            </button>
+            {(chatHistory.length > 0 || chatMessages.length > 1) && (
+              <button
+                onClick={clearInterviewState}
+                className="inline-flex items-center px-6 py-4 border border-gray-300 text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 shadow-lg"
+              >
+                Clear Session
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
