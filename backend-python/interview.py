@@ -147,10 +147,14 @@ def evaluate_single_answer(question, answer, resume_text):
 def generate_final_report(interview_data, user_name=None):
     prompt = (
         "You are an expert AI interviewer tasked with evaluating a candidate's technical interview performance.\n"
-        f"Candidate Name: {user_name if user_name else 'N/A'}\n"
         "Based on the interview questions, expected answers, and the candidate's actual responses, provide a comprehensive evaluation report.\n"
-        "Your report should include: 1) overall assessment, 2) strengths, 3) areas for improvement, 4) detailed feedback on each question, 5) recommendations.\n"
-        "Be professional, direct, and constructive.\n"
+        "Your report should include:\n"
+        "1. A concise overall assessment (no repeated words or phrases).\n"
+        "2. Specific strengths (bullet points, no repetition).\n"
+        "3. Areas for improvement (bullet points, no repetition).\n"
+        "4. Detailed feedback on each question (no repeated words or phrases).\n"
+        "5. Concrete recommendations for the candidate to improve their knowledge and interview performance.\n"
+        "Be professional, direct, and constructive. Do NOT repeat words or phrases. Do NOT include the candidate's name. Avoid any kind of duplication in your response.\n"
         f"Interview Data: {json.dumps(interview_data)}"
     )
     text = groq_chat(prompt, system_prompt="You are a helpful AI interview evaluator.") or ""
@@ -158,20 +162,23 @@ def generate_final_report(interview_data, user_name=None):
     return text.strip()
 
 def next_interview_question(resume_text, chat_history, user_intro=None):
+    total_questions = 7
+    current_question_num = len(chat_history) + 1
     if user_intro and not chat_history:
         intro_part = f"The candidate introduced themselves as: {user_intro}\n"
     else:
         intro_part = ""
     prompt = (
-        "You are a professional technical interviewer. "
-        "Given the following resume and the previous interview questions and answers, generate the next interview question for a technical interview. "
+        f"You are a professional technical interviewer conducting a real-time, friendly job interview. "
+        f"This interview consists of {total_questions} questions. You are about to ask question number {current_question_num} out of {total_questions}. "
+        "Your job is to keep the conversation natural and human-like, as if you are speaking to the candidate in person. "
+        "Given the following resume and the previous interview questions and answers, first give a brief, natural, conversational comment on the candidate's most recent answer (if any)—no more than 2 sentences, and do not repeat or over-explain. Then, ask the next interview question. "
+        "Make the question flow naturally from the previous conversation, but do not repeat or over-explain. "
         f"{intro_part}"
-        "First, briefly comment on the candidate's most recent answer (if any), making the transition natural and conversational. "
-        "Then, ask the next interview question. "
-        "Ensure that over the course of 6 questions, you cover: 1) projects/experience, 2) technical skills, 3) education/background, 4) behavioral/soft skills, 5) problem-solving, 6) motivation/career goals. "
+        f"Ensure that over the course of {total_questions} questions, you cover: 1) projects/experience, 2) technical skills, 3) education/background, 4) behavioral/soft skills, 5) problem-solving, 6) motivation/career goals, 7) wrap-up or closing. "
         "Do NOT repeat topics already covered. "
         "Ask a clear, relevant, and non-generic question. "
-        "Return ONLY the combined comment and next question as plain text, no explanations, no markdown, no JSON.\n"
+        "Return ONLY the brief comment and the next question as plain text, no explanations, no markdown, no JSON.\n"
         f"Resume: {resume_text}\n"
         f"Previous Q&A: {json.dumps(chat_history)}"
     )

@@ -15,7 +15,9 @@ import {
   BarChart3,
   Bot,
   User,
-  Loader
+  Loader,
+  Download,
+  Smile
 } from 'lucide-react';
 import axios from 'axios';
 import { BACKEND_URL } from '../config';
@@ -50,6 +52,7 @@ const Interview = () => {
   const [lastSpokenBotMsgId, setLastSpokenBotMsgId] = useState(() => {
     return sessionStorage.getItem('lastSpokenBotMsgId') || null;
   });
+  const [showingSummary, setShowingSummary] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,7 +129,15 @@ const Interview = () => {
     }
   }, [lastSpokenBotMsgId]);
 
+  // Cancel any speech when interview is completed
   useEffect(() => {
+    if (interviewCompleted) {
+      window.speechSynthesis.cancel();
+    }
+  }, [interviewCompleted]);
+
+  useEffect(() => {
+    if (interviewCompleted || chatHistory.length >= 7) return;
     if (chatMessages.length === 0) return;
     const lastMsg = chatMessages[chatMessages.length - 1];
     const lastMsgIdStr = String(lastMsg.id);
@@ -144,7 +155,7 @@ const Interview = () => {
       window.speechSynthesis.speak(utterance);
       setLastSpokenBotMsgId(lastMsgIdStr);
     }
-  }, [chatMessages, lastSpokenBotMsgId]);
+  }, [chatMessages, lastSpokenBotMsgId, interviewCompleted, chatHistory.length]);
 
   // Cleanup MediaRecorder on unmount or state changes
   useEffect(() => {
@@ -188,6 +199,14 @@ const Interview = () => {
       setShowIntroPrompt(false);
     }
   }, [interviewStarted, chatHistory, chatMessages, showIntroPrompt]);
+
+  useEffect(() => {
+    if (interviewCompleted) {
+      setShowingSummary(false);
+      const timer = setTimeout(() => setShowingSummary(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [interviewCompleted]);
 
   const fetchNextQuestion = async (history, intro = undefined) => {
     if (!resumeText) {
@@ -287,38 +306,40 @@ const Interview = () => {
     ];
     setChatHistory(newHistory);
     try {
-      const nextQRes = await axios.post(`${BACKEND_URL}/api/interview/next-question`, {
-        resumeText,
-        chatHistory: newHistory
-      });
-      const nextQ = nextQRes.data.question || 'No next question.';
-      axios.post(`${BACKEND_URL}/api/interview/evaluate`, {
-        question: currentQuestion,
-        answer: userAnswer,
-        resumeText
-      }).then(res => {
-        if (res.data && typeof res.data.score === 'number') {
-          setChatHistory(prev => prev.map((item, idx) =>
-            idx === prev.length - 1 ? { ...item, score: res.data.score } : item
-          ));
-        }
-      }).catch(() => {});
-      setTimeout(() => {
-        setChatMessages(prev => prev.map(msg =>
-          msg.id === typingId ? { ...msg, content: nextQ, isTyping: false } : msg
-        ));
+      // Only fetch next question if less than 7 answers
+      if (newHistory.length < 7) {
+        const nextQRes = await axios.post(`${BACKEND_URL}/api/interview/next-question`, {
+          resumeText,
+          chatHistory: newHistory
+        });
+        const nextQ = nextQRes.data.question || 'No next question.';
+        axios.post(`${BACKEND_URL}/api/interview/evaluate`, {
+          question: currentQuestion,
+          answer: userAnswer,
+          resumeText
+        }).then(res => {
+          if (res.data && typeof res.data.score === 'number') {
+            setChatHistory(prev => prev.map((item, idx) =>
+              idx === prev.length - 1 ? { ...item, score: res.data.score } : item
+            ));
+          }
+        }).catch(() => {});
         setTimeout(() => {
-          if (newHistory.length < 6) {
+          setChatMessages(prev => prev.map(msg =>
+            msg.id === typingId ? { ...msg, content: nextQ, isTyping: false } : msg
+          ));
+          setTimeout(() => {
             setCurrentQuestion(nextQ);
             setWaitingForAnswer(true);
             setUserAnswer('');
             textareaRef.current?.focus();
-          } else {
-            setInterviewCompleted(true);
-            generateReport(newHistory);
-          }
-        }, 1500);
-      }, 1200);
+          }, 1500);
+        }, 1200);
+      } else {
+        // 7th answer submitted, finish interview
+        setInterviewCompleted(true);
+        generateReport(newHistory);
+      }
     } catch (error) {
       setChatMessages(prev => prev.map(msg =>
         msg.id === typingId ? { ...msg, content: 'Error getting next question.', isTyping: false } : msg
@@ -401,7 +422,7 @@ const Interview = () => {
             msg.id === typingId ? { ...msg, content: nextQ, isTyping: false } : msg
           ));
           setTimeout(() => {
-            if (newHistory.length < 6) {
+            if (newHistory.length < 7) {
               setCurrentQuestion(nextQ);
               setWaitingForAnswer(true);
               setUserAnswer('');
@@ -454,7 +475,6 @@ const Interview = () => {
       };
       sessionStorage.setItem('interviewResults', JSON.stringify(interviewResults));
       sessionStorage.setItem('interviewReport', response.data.report);
-      navigate('/report');
     } catch (error) {
       alert('Error generating report.');
     } finally {
@@ -748,46 +768,71 @@ const Interview = () => {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4 animate-bounce" />
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Interview Completed!</h1>
             <p className="text-xl text-gray-600">Excellent work! Here's your performance summary.</p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="text-center p-6 bg-indigo-50 rounded-xl">
-                <Award className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-indigo-600">{averageScore}/10</div>
-                <div className="text-sm text-gray-600">Average Score</div>
+          {!showingSummary ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader className="h-12 w-12 text-indigo-600 animate-spin mb-4" />
+              <p className="text-lg text-gray-600">Generating your interview summary...</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border-2 border-indigo-100">
+              <div className="flex items-center justify-center mb-6">
+                <Smile className="h-10 w-10 text-indigo-600 mr-2" />
+                <h2 className="text-2xl font-bold text-indigo-700">Your Interview Summary</h2>
               </div>
-              <div className="text-center p-6 bg-green-50 rounded-xl">
-                <MessageCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-green-600">{chatHistory.length}</div>
-                <div className="text-sm text-gray-600">Questions Answered</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="text-center p-6 bg-indigo-50 rounded-xl">
+                  <Award className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-indigo-600">{averageScore}/10</div>
+                  <div className="text-sm text-gray-600">Average Score</div>
+                </div>
+                <div className="text-center p-6 bg-green-50 rounded-xl">
+                  <MessageCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-600">{chatHistory.length}</div>
+                  <div className="text-sm text-gray-600">Questions Answered</div>
+                </div>
+                <div className="text-center p-6 bg-purple-50 rounded-xl">
+                  <Clock className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-purple-600">~15</div>
+                  <div className="text-sm text-gray-600">Minutes</div>
+                </div>
               </div>
-              <div className="text-center p-6 bg-purple-50 rounded-xl">
-                <Clock className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-purple-600">~15</div>
-                <div className="text-sm text-gray-600">Minutes</div>
+              <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+                <button
+                  onClick={goToReport}
+                  className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors duration-200"
+                >
+                  <Download className="h-5 w-5 mr-2" />
+                  View Full Report
+                </button>
+                <button
+                  onClick={clearInterviewState}
+                  className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  Start New Interview
+                </button>
+                <button
+                  onClick={() => navigate('/career-coach')}
+                  className="inline-flex items-center px-6 py-3 border border-green-600 text-base font-medium rounded-lg text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
+                >
+                  <User className="h-5 w-5 mr-2" />
+                  Go to Career Coach
+                </button>
+              </div>
+              <div className="mt-8 text-center">
+                <p className="text-gray-500 text-sm mb-2">How was your experience?</p>
+                <div className="flex justify-center gap-2">
+                  <button className="px-4 py-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200">😊 Great</button>
+                  <button className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200">😐 Okay</button>
+                  <button className="px-4 py-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">🙁 Needs Work</button>
+                </div>
               </div>
             </div>
-
-            <div className="flex justify-center space-x-4 mt-8">
-              <button
-                onClick={goToReport}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200"
-              >
-                <BarChart3 className="h-5 w-5 mr-2" />
-                View Full Report
-              </button>
-              <button
-                onClick={clearInterviewState}
-                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-              >
-                Start New Interview
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -797,6 +842,13 @@ const Interview = () => {
     <div className="min-h-screen bg-gray-50 pt-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex items-center justify-between px-6 py-4 mb-4">
+            <h2 className="text-2xl font-bold text-indigo-700">AI Interview</h2>
+            <span className="text-lg text-gray-600">Question {Math.min(chatHistory.length + (waitingForAnswer ? 1 : 0), 7)} of 7</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+            <div className="bg-indigo-600 h-3 rounded-full transition-all duration-700" style={{ width: `${Math.round((chatHistory.length + (waitingForAnswer ? 1 : 0)) / 7 * 100)}%` }}></div>
+          </div>
           <div className="h-[60vh] overflow-y-auto p-6 space-y-4 bg-gray-50">
             {chatMessages.map((message) => (
               <div
