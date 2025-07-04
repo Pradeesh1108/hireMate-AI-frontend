@@ -1,11 +1,10 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Navigation from './components/Navigation';
-import Home from './pages/Home';
-import Upload from './pages/Upload';
-import Interview from './pages/Interview';
-import Report from './pages/Report';
-import CareerCoach from './pages/CareerCoach';
+import Navigation from './components/Navigation.jsx';
+import Home from './pages/Home.jsx';
+import Upload from './pages/Upload.jsx';
+import Interview from './pages/Interview.jsx';
+import Report from './pages/Report.jsx';
+import CareerCoach from './pages/CareerCoach.jsx';
 
 function App() {
   return (
