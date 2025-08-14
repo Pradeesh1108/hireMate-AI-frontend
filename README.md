@@ -92,7 +92,6 @@ HireMate AI is a comprehensive AI-powered career enhancement platform that combi
 - **ESLint**: Code linting and quality assurance
 - **PostCSS**: CSS processing and optimization
 - **Autoprefixer**: CSS vendor prefixing
-- **TypeScript**: Type checking and compilation
 
 ## 🏗 Architecture
 
