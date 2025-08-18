@@ -68,7 +68,6 @@ HireMate AI is a comprehensive AI-powered career enhancement platform that combi
 
 ### Frontend
 - **React 18**: Modern React with hooks and functional components
-- **TypeScript**: Type-safe JavaScript development
 - **Vite**: Fast build tool and development server
 - **React Router**: Client-side routing and navigation
 - **Tailwind CSS**: Utility-first CSS framework
